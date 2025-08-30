@@ -27,11 +27,13 @@ class Server:
         """
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-        # TODO: Modify this program to handle signal to graceful shutdown
         # the server
         while not self.shutdown:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            try:
+                client_sock = self.__accept_new_connection()
+                self.__handle_client_connection(client_sock)
+            except e:
+                logging.info(f"Client closed the connection: {e}")
         else:
             logging.info(f"action: receive_shutdown_signal | result: success")
 
