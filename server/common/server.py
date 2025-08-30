@@ -32,8 +32,8 @@ class Server:
             try:
                 client_sock = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
-            except e:
-                logging.info(f"Client closed the connection: {e}")
+            except:
+                logging.info(f"Client closed the connection")
         else:
             logging.info(f"action: receive_shutdown_signal | result: success")
 
