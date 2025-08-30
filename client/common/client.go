@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/op/go-logging"
 )
@@ -23,6 +26,7 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	conn   net.Conn
+	keepRunning bool
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -30,7 +34,14 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		keepRunning: true,
 	}
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		client.shutdown()
+	}()
 	return client
 }
 
@@ -50,11 +61,23 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
+// Handles graceful shutdown when SIGTERM is received
+func (c *Client) shutdown() {
+	log.Infof("action: receive_shutdown_signal | result: in_progress")
+	if c.keepRunning {
+		c.keepRunning = false
+	}
+}
+
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
+		if !c.keepRunning {
+			log.Infof("action: receive_shutdown_signal | result: success")
+			return
+		}
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
