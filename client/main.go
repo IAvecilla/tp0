@@ -109,11 +109,12 @@ func main() {
 	PrintConfig(v)
 
 	bet := common.Bet{
-		Nombre: v.GetString("NOMBRE"),
-		Apellido: v.GetString("APELLIDO"),
-		Documento: v.GetString("DOCUMENTO"),
-		Numero: v.GetString("NUMERO"),
-		Nacimiento: v.GetString("NACIMIENTO"),
+		AgencyId: v.GetString("id"),
+		Name: v.GetString("NOMBRE"),
+		LastName: v.GetString("APELLIDO"),
+		Document: v.GetString("DOCUMENTO"),
+		Number: v.GetString("NUMERO"),
+		Birthdate: v.GetString("NACIMIENTO"),
 	}
 
 	clientConfig := common.ClientConfig{

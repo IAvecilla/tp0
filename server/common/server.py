@@ -2,6 +2,7 @@ import socket
 import logging
 import signal
 from common.utils import Bet, store_bets
+from common.protocol import receive_bet_message
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -32,8 +33,8 @@ class Server:
             try:
                 client_sock = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
-            except:
-                logging.info(f"Client closed the connection")
+            except Exception as e:
+                logging.info(f"Error trying to establish a connection with client: {e}")
         else:
             logging.info(f"action: receive_shutdown_signal | result: success")
 
@@ -45,15 +46,9 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(2800).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            bet_fields = msg.split(",")
-            received_bet = Bet(bet_fields[0],bet_fields[1],bet_fields[2], bet_fields[3], bet_fields[4], bet_fields[5])
+            received_bet = receive_bet_message(client_sock)
             store_bets([received_bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet_fields[3]} | numero: {bet_fields[5]}")
-            # TODO: Modify the send to avoid short-writes
+            logging.info(f"action: apuesta_almacenada | result: success | dni: {received_bet.document} | numero: {received_bet.number}")
             client_sock.send(f"{received_bet.document},{received_bet.number}\n".encode('utf-8'))
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")

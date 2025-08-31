@@ -1,14 +1,11 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
 	"net"
 	"time"
 	"os"
 	"os/signal"
 	"syscall"
-	"strings"
 
 	"github.com/op/go-logging"
 )
@@ -74,32 +71,17 @@ func (c *Client) shutdown() {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-	// There is an autoincremental msgID to identify every message sent
-	// Messages if the message amount threshold has not been surpassed
 		if !c.keepRunning {
 			log.Infof("action: receive_shutdown_signal | result: success")
 			return
 		}
-		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"%v,%s,%s,%s,%s,%v\n",
-			c.config.ID,
-			c.bet.Nombre,
-			c.bet.Apellido,
-			c.bet.Documento,
-			c.bet.Nacimiento,
-			c.bet.Numero,
-		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
+		response, err := sendBet(c.bet, c.conn)
 		c.conn.Close()
-		responseFields := strings.Split(msg, ",") 
 
-		if len(responseFields) == 2 && responseFields[0] == c.bet.Documento && strings.TrimRight(responseFields[1], "\n") == c.bet.Numero && err == nil {
-			log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.bet.Documento, c.bet.Numero)
+		if response.Document == c.bet.Document && response.Number == c.bet.Number && err == nil {
+			log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", response.Document, response.Number)
 		} else {
 			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
 				c.config.ID,
@@ -107,9 +89,6 @@ func (c *Client) StartClientLoop() {
 			)
 			return
 		}
-
-		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
 
 		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
