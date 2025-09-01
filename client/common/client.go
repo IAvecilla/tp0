@@ -135,12 +135,6 @@ func loadTotalBets(config ClientConfig) ([]Bet, error) {
 
 	reader := csv.NewReader(file)
     var bets []Bet
-    
-    // Skip header if exists
-    _, err = reader.Read()
-    if err != nil && err != io.EOF {
-        return nil, err
-    }
 
     for {
         record, err := reader.Read()
