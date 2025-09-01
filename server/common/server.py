@@ -46,10 +46,18 @@ class Server:
         client socket will also be closed
         """
         try:
-            received_bet = receive_bet_message(client_sock)
-            store_bets([received_bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {received_bet.document} | numero: {received_bet.number}")
-            client_sock.send(f"{received_bet.document},{received_bet.number}\n".encode('utf-8'))
+            logging.info(f"action: total_apuestas_recibidas | result: in_progress")
+            total_received_bets = 0
+            while True:
+                received_bets, keep_reading = receive_bet_message(client_sock)
+                if received_bets and keep_reading:
+                    store_bets(received_bets)
+                    logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
+                    client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
+                    total_received_bets += len(received_bets)       
+                else:
+                    logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
+                    break
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:

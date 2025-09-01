@@ -39,6 +39,7 @@ def write_clients_service(output_file, num_clients):
         output_file.write(f"      - CLI_NACIMIENTO={random_date}\n")
         output_file.write("    volumes:\n")
         output_file.write("      - ./client/config.yaml:/config.yaml\n")
+        output_file.write(f"      - ./.data/agency-{client_id}.csv:/agency-data.csv\n")
         output_file.write("    networks:\n")
         output_file.write("      - testing_net\n")
         output_file.write("    depends_on:\n")

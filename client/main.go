@@ -37,6 +37,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
+	v.BindEnv("batch", "maxAmount")
 	v.BindEnv("NOMBRE")
 	v.BindEnv("APELLIDO") 
 	v.BindEnv("DOCUMENTO")
@@ -122,8 +123,11 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
+		MaxBatchAmount: v.GetInt("batch.maxAmount"),
 	}
 
 	client := common.NewClient(clientConfig, bet)
-	client.StartClientLoop()
+	if client != nil {
+		client.StartClientLoop()
+	}
 }
