@@ -46,6 +46,12 @@ func sendBets(bets []Bet, conn net.Conn) (*ServerResponse, error) {
 	finalBetMessage := strings.Join(encodedBets, "|")
 	messageBytes := []byte(finalBetMessage)
 	messageLength := len(finalBetMessage)
+
+	if messageLength > 8192 {
+		log.Error("action: send_message | result: fail | error: message larger than 8kb")
+		return nil, errors.New("message larger than 8kb, consider changing the max amount of bets per batch")
+	}
+
 	messageSize := uint16(messageLength)
 	sizeBuffer := make([]byte, 2)
 	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
