@@ -86,6 +86,7 @@ func (c *Client) StartClientLoop() {
 		c.createClientSocket()
 		totalBetAmount := len(c.bets)
 		betsSent := 0
+		sentNewBetMessage(c.conn)
 		for i := c.config.MaxBatchAmount; i < totalBetAmount; i = i + c.config.MaxBatchAmount {
 			betsInBatch := c.bets[betsSent:i]
 			response, err := sendBets(betsInBatch, c.conn)
@@ -123,8 +124,22 @@ func (c *Client) StartClientLoop() {
 		sendFinalMessage(c.conn)
 		c.conn.Close()
 
-		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-}
+		for {
+			log.Infof("action: consulta_ganadores | result: in_progress")
+			c.createClientSocket()
+
+			results, keepRequesting := sendAskForResults(c.conn, c.config.ID)
+			if !keepRequesting {
+				log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(results))
+				c.conn.Close()
+				time.Sleep(100 * time.Millisecond)
+				return
+			} else {
+				c.conn.Close()
+				time.Sleep(1000 * time.Millisecond)
+			}
+		}
+	}
 
 func loadTotalBets(config ClientConfig) ([]Bet, error) {
 	file, err := os.Open("agency-data.csv")

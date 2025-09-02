@@ -1,13 +1,14 @@
 import sys
 import random
 
-def write_server_service(output_file):
+def write_server_service(output_file, num_clients):
     output_file.write("  server:\n")
     output_file.write("    container_name: server\n")
     output_file.write("    image: server:latest\n")
     output_file.write("    entrypoint: python3 /main.py\n")
     output_file.write("    environment:\n")
     output_file.write("      - PYTHONUNBUFFERED=1\n")
+    output_file.write(f"      - TOTAL_AGENCIES={num_clients}\n")
     output_file.write("    volumes:\n")
     output_file.write("      - ./server/config.ini:/config.ini\n")
     output_file.write("    networks:\n")
@@ -59,7 +60,7 @@ def write_compose_file(output_file: str, num_clients: int):
         f.write("name: tp0\n")
         f.write("services:\n")
 
-        write_server_service(f)
+        write_server_service(f, num_clients)
         write_clients_service(f, num_clients)
         write_networks(f)
 

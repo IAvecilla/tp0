@@ -1,16 +1,18 @@
 import socket
 import logging
 import signal
-from common.utils import Bet, store_bets
-from common.protocol import receive_bet_message
+from common.utils import Bet, store_bets, load_bets, has_won
+from common.protocol import receive_bet_message, receive_new_message, send_results_not_ready, send_winners, encode_bet
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, clients):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.shutdown = False
+        self.finished_clients = 0
+        self.clients = int(clients)
 
     def handle_sigterm(self, signum, frame):
         self.shutdown = True
@@ -46,18 +48,41 @@ class Server:
         client socket will also be closed
         """
         try:
-            logging.info(f"action: total_apuestas_recibidas | result: in_progress")
             total_received_bets = 0
+            msg = receive_new_message(client_sock)
             while True:
-                received_bets, keep_reading = receive_bet_message(client_sock)
-                if received_bets and keep_reading:
-                    store_bets(received_bets)
-                    logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
-                    client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
-                    total_received_bets += len(received_bets)       
-                else:
-                    logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
-                    break
+                if msg == "NEW_BET":
+                    logging.info(f"action: total_apuestas_recibidas | result: in_progress")
+                    received_bets, keep_reading = receive_bet_message(client_sock)
+                    if received_bets and keep_reading:
+                        store_bets(received_bets)
+                        logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
+                        client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
+                        total_received_bets += len(received_bets) 
+                    elif not keep_reading:
+                        logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
+                        self.finished_clients += 1
+                        break
+                if msg == "BET_RESULT":
+                    logging.info("action: sorteo | result: in_progress")
+                    print(self.clients)
+                    print(self.finished_clients)
+                    if self.clients == self.finished_clients:
+                        print("A")
+                        agency_id = receive_new_message(client_sock)
+                        print("B")
+                        final_bets = load_bets()
+                        winners = [bet for bet in final_bets if has_won(bet)]
+                        print("C")
+                        agency_winners = [encode_bet(bet) for bet in winners if bet.agency == int(agency_id)]
+                        send_winners(client_sock, agency_winners)
+                        print("D")
+                        logging.info("action: sorteo | result: success")
+                        break
+                    else:
+                        send_results_not_ready(client_sock)
+                        logging.info("action: sorteo | result: fail")
+                        break
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:

@@ -87,3 +87,47 @@ func sendFinalMessage(conn net.Conn) {
 	_, _ = conn.Write(sizeBuffer)
 	_, _ = conn.Write(messageBytes)
 }
+
+func sendAskForResults(conn net.Conn, agencyId string) ([]string, bool) {
+	resultMessage := "BET_RESULT"
+	messageBytes := []byte(resultMessage)
+	messageLength := len(resultMessage)
+	messageSize := uint16(messageLength)
+	sizeBuffer := make([]byte, 2)
+	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
+
+	_, _ = conn.Write(sizeBuffer)
+	_, _ = conn.Write(messageBytes)
+
+	messageBytes = []byte(agencyId)
+	messageLength = len(agencyId)
+	messageSize = uint16(messageLength)
+	sizeBuffer = make([]byte, 2)
+	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
+
+	_, _ = conn.Write(sizeBuffer)
+	_, _ = conn.Write(messageBytes)
+
+	msg, _ := bufio.NewReader(conn).ReadString('\n')
+
+	if msg == "NOT_READY" {
+		return []string{}, true
+	} else if msg == "NO_WINNERS" {
+		return []string{}, false
+	}
+
+	winners := strings.Split(msg, "|")
+	return winners, false
+}
+
+func sentNewBetMessage(conn net.Conn) {
+	newBetMessage := "NEW_BET"
+	messageBytes := []byte(newBetMessage)
+	messageLength := len(newBetMessage)
+	messageSize := uint16(messageLength)
+	sizeBuffer := make([]byte, 2)
+	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
+
+	_, _ = conn.Write(sizeBuffer)
+	_, _ = conn.Write(messageBytes)
+}
