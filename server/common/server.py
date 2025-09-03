@@ -81,7 +81,7 @@ class Server:
                         break
                     else:
                         send_results_not_ready(client_sock)
-                        logging.info("action: sorteo | result: fail")
+                        logging.info("action: sorteo | result: in_progress")
                         break
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
