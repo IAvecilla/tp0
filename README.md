@@ -194,3 +194,14 @@ El script se invoca de la siguiente manera:
 - **OUTPUT_FILE**: Nombre del archivo donde se va a escribir el docker compose
 - **NUM_CLIENTS**: Cantidad de servicios de cliente a escribir
 
+### Ejercicio 2
+
+Se incluyeron dos lineas en el generador del docker compose agregando volumes tanto en el cliente como el servidor para los archivos de configuracion.
+Se cambiaron los comandos de `COPY` dentro de los Dockerfiles para no copiar los archivos de configuracion y utilizar los archivos compartidos con el host medianto los volumenes.
+Tambien se eliminaros las variables de entorno relacionadas al nivel de log ya que tenian preferencia por sobre las que estan en el archivo de configuracion.
+
+Para comprobar su funcionamiento se puede ejecutar el comando de
+
+`make docker-compose-up` y una vez iniciado los containers ejecutar `docker exec server ls /` para comprobar que el archivo evidentemente existe, tambien se puede modificar el archivo de configuracion en la maquina host y compraobar con el comando `docker exec server cat /config.ini` que se modificó dentro del container.
+
+
