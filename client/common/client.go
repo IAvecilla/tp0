@@ -83,6 +83,7 @@ func (c *Client) StartClientLoop() {
 			log.Infof("action: receive_shutdown_signal | result: success")
 			return
 		}
+		time.Sleep(1000 * time.Millisecond)
 		c.createClientSocket()
 		totalBetAmount := len(c.bets)
 		betsSent := 0

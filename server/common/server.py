@@ -1,6 +1,7 @@
 import socket
 import logging
 import signal
+import multiprocessing
 from common.utils import Bet, store_bets, load_bets, has_won
 from common.protocol import receive_bet_message, receive_new_message, send_results_not_ready, send_winners, encode_bet
 
@@ -9,10 +10,14 @@ class Server:
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
+        self._server_socket.settimeout(5.0)
+        manager = multiprocessing.Manager()
         self._server_socket.listen(listen_backlog)
         self.shutdown = False
-        self.finished_clients = 0
+        self.finished_clients = manager.Value('i', 0)
         self.clients = int(clients)
+        self._storage_lock = manager.Lock()
+        self.active_processes = []
 
     def handle_sigterm(self, signum, frame):
         self.shutdown = True
@@ -34,11 +39,27 @@ class Server:
         while not self.shutdown:
             try:
                 client_sock = self.__accept_new_connection()
-                self.__handle_client_connection(client_sock)
+                p = multiprocessing.Process(
+                    target=self.__handle_client_connection,
+                    args=(client_sock,)
+                )
+                p.daemon = True
+                p.start()
+                self.active_processes.append(p)
+                
+                client_sock.close()
+                self._cleanup_finished_processes()
+            except socket.timeout:
+                # Timeout is expected, just check shutdown flag
+                continue
             except Exception as e:
                 logging.info(f"Error trying to establish a connection with client: {e}")
         else:
             logging.info(f"action: receive_shutdown_signal | result: success")
+
+    def _cleanup_finished_processes(self):
+        """Remove finished processes from active list"""
+        self.active_processes = [p for p in self.active_processes if p.is_alive()]
 
     def __handle_client_connection(self, client_sock):
         """
@@ -55,28 +76,26 @@ class Server:
                     logging.info(f"action: total_apuestas_recibidas | result: in_progress")
                     received_bets, keep_reading = receive_bet_message(client_sock)
                     if received_bets and keep_reading:
-                        store_bets(received_bets)
+                        with self._storage_lock:
+                            store_bets(received_bets)
                         logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
                         client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
                         total_received_bets += len(received_bets) 
                     elif not keep_reading:
                         logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
-                        self.finished_clients += 1
+                        self.finished_clients.value += 1
                         break
                 if msg == "BET_RESULT":
                     logging.info("action: sorteo | result: in_progress")
                     print(self.clients)
-                    print(self.finished_clients)
-                    if self.clients == self.finished_clients:
-                        print("A")
+                    print(self.finished_clients.value)
+                    if self.clients == self.finished_clients.value:
                         agency_id = receive_new_message(client_sock)
-                        print("B")
-                        final_bets = load_bets()
+                        with self._storage_lock:
+                            final_bets = load_bets()
                         winners = [bet for bet in final_bets if has_won(bet)]
-                        print("C")
                         agency_winners = [encode_bet(bet) for bet in winners if bet.agency == int(agency_id)]
                         send_winners(client_sock, agency_winners)
-                        print("D")
                         logging.info("action: sorteo | result: success")
                         break
                     else:
