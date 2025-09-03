@@ -204,4 +204,16 @@ Para comprobar su funcionamiento se puede ejecutar el comando de
 
 `make docker-compose-up` y una vez iniciado los containers ejecutar `docker exec server ls /` para comprobar que el archivo evidentemente existe, tambien se puede modificar el archivo de configuracion en la maquina host y compraobar con el comando `docker exec server cat /config.ini` que se modificó dentro del container.
 
+### Ejercicio 3
+
+Se creó un nuevo script llamado `validar-echo-server.sh` que permite chequear que el servidor este funcionando correctamente mandando un mensaje con netcat y verificando que la respuesta se la misma.
+
+Se realiza corriendo un container con Alpine al cual se le instala netcat y se elimina una vez que recibe la respuesta, esa respuesta se comparaba con el mensaje original y se imprime por consola si el proceso fue exitoso o no.
+
+Se puede correr de la siguiente manera:
+
+`TEST_MESSAGE=<MESSAGE_TO_SEND ./validar-echo-server.sh`
+
+- **MESSAGE_TO_SEND**: Mensaje a utilizar para probar el servidor, en caso de no definir esa variable se utiliza el mensaje `test` por defecto.
+
 
