@@ -178,3 +178,19 @@ Se espera que se redacte una sección del README en donde se indique cómo ejecu
 Se proveen [pruebas automáticas](https://github.com/7574-sistemas-distribuidos/tp0-tests) de caja negra. Se exige que la resolución de los ejercicios pase tales pruebas, o en su defecto que las discrepancias sean justificadas y discutidas con los docentes antes del día de la entrega. El incumplimiento de las pruebas es condición de desaprobación, pero su cumplimiento no es suficiente para la aprobación. Respetar las entradas de log planteadas en los ejercicios, pues son las que se chequean en cada uno de los tests.
 
 La corrección personal tendrá en cuenta la calidad del código entregado y casos de error posibles, se manifiesten o no durante la ejecución del trabajo práctico. Se pide a los alumnos leer atentamente y **tener en cuenta** los criterios de corrección informados  [en el campus](https://campusgrado.fi.uba.ar/mod/page/view.php?id=73393).
+
+---
+
+# Entrega
+
+## Parte 1
+### Ejercicio 1
+
+Se creó un archivo entrypoint `generar-compose.sh` que ejecuta otro script hecho en Python llamado `generador.py` el cual genera el docker compose con una determinada cantidad de clientes.
+
+El script se invoca de la siguiente manera:
+`./generar-compose.sh <OUTPUT_FILE> <NUM_CLIENTS>`
+
+- **OUTPUT_FILE**: Nombre del archivo donde se va a escribir el docker compose
+- **NUM_CLIENTS**: Cantidad de servicios de cliente a escribir
+
