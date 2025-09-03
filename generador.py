@@ -1,50 +1,71 @@
 import sys
 
 def write_server_service(output_file):
-    output_file.write("  server:\n")
-    output_file.write("    container_name: server\n")
-    output_file.write("    image: server:latest\n")
-    output_file.write("    entrypoint: python3 /main.py\n")
-    output_file.write("    environment:\n")
-    output_file.write("      - PYTHONUNBUFFERED=1\n")
-    output_file.write("    volumes:\n")
-    output_file.write("      - ./server/config.ini:/config.ini\n")
-    output_file.write("    networks:\n")
-    output_file.write("      - testing_net\n")
-    output_file.write("\n")
+    """Write server service"""
+    server_content = """  server:
+    container_name: server
+    image: server:latest
+    entrypoint: python3 /main.py
+    volumes:
+      - ./server/config.ini:/config.ini
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - testing_net
+
+"""
+    output_file.write(server_content)
+
 
 def write_clients_service(output_file, num_clients):
+    """Write all client services"""
+    clients_content = ""
     for client_id in range(1, num_clients + 1):
-        output_file.write(f"  client{client_id}:\n")
-        output_file.write(f"    container_name: client{client_id}\n")
-        output_file.write("    image: client:latest\n")
-        output_file.write("    entrypoint: /client\n")
-        output_file.write("    environment:\n")
-        output_file.write(f"      - CLI_ID={client_id}\n")
-        output_file.write("    volumes:\n")
-        output_file.write("      - ./client/config.yaml:/config.yaml\n")
-        output_file.write("    networks:\n")
-        output_file.write("      - testing_net\n")
-        output_file.write("    depends_on:\n")
-        output_file.write("      - server\n")
-        output_file.write("\n")
+        clients_content += f"""  client{client_id}:
+    container_name: client{client_id}
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID={client_id}
+    volumes:
+      - ./client/config.yaml:/config.yaml
+    networks:
+      - testing_net
+    depends_on:
+      - server
+
+"""
+    output_file.write(clients_content)
+
 
 def write_networks(output_file):
-    output_file.write("networks:\n")
-    output_file.write("  testing_net:\n")
-    output_file.write("    ipam:\n")
-    output_file.write("      driver: default\n")
-    output_file.write("      config:\n")
-    output_file.write("        - subnet: 172.25.125.0/24\n")
+    """Write networks section"""
+    networks_content = """networks:
+  testing_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
+"""
+    output_file.write(networks_content)
 
-def write_compose_file(output_file: str, num_clients: int):
-    with open(output_file, "w") as f:
-        f.write("name: tp0\n")
-        f.write("services:\n")
 
-        write_server_service(f)
-        write_clients_service(f, num_clients)
-        write_networks(f)
+def write_compose_file(output_file, num_clients):
+    """Generate the docker compose file"""
+    try:
+        with open(output_file, "w") as f:
+            # Write header
+            f.write("name: tp0\nservices:\n")
+            
+            # Write all sections
+            write_server_service(f)
+            write_clients_service(f, num_clients)
+            write_networks(f)
+        
+        print(f"Generated {output_file} with {num_clients} clients")
+    except Exception as e:
+        print(f"Error generating docker file: {e}")
+
 
 if __name__ == "__main__":
     args = sys.argv
