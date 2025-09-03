@@ -6,6 +6,8 @@ def write_server_service(output_file):
     container_name: server
     image: server:latest
     entrypoint: python3 /main.py
+    volumes:
+      - ./server/config.ini:/config.ini
     environment:
       - PYTHONUNBUFFERED=1
     networks:
