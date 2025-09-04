@@ -98,11 +98,11 @@ class Server:
 
                     if self.clients == current_finished_clients:
                         agency_id = msg.split(",")[1]
-                        if len(self.final_winners) == 0:
+                        if len(self.final_winners.value) == 0:
                             with self._storage_lock:
                                 final_bets = load_bets()
                             with self.final_winners_lock:
-                                self.final_winners = [bet for bet in final_bets if has_won(bet)]
+                                self.final_winners.value = [bet for bet in final_bets if has_won(bet)]
                         agency_winners = [encode_bet(bet) for bet in self.final_winners if bet.agency == int(agency_id)]
                         send_winners(client_sock, agency_winners)
                         logging.info("action: sorteo | result: success")
