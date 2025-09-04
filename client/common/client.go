@@ -36,6 +36,9 @@ func NewClient(config ClientConfig, bet Bet) *Client {
 		keepRunning: true,
 		bet: bet,
 	}
+
+	// If the SIGTERM signal is received it will be sent to the sigc channel triggering
+	// the shutdown in the goroutine
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGTERM)
 	go func() {

@@ -11,12 +11,12 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.shutdown = False
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-    def handle_sigterm(self, signum, frame):
-        self.shutdown = True
+    def handle_sigterm(self, _signum, _frame):
+        """Handler for the SIGTERM signal"""
         logging.info(f"action: receive_shutdown_signal | result: in_progress")
-        if self._server_socket:
-            self._server_socket.close()
+        self.shutdown = True
 
     def run(self):
         """
@@ -26,7 +26,6 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         # the server
         while not self.shutdown:
@@ -36,6 +35,8 @@ class Server:
             except Exception as e:
                 logging.info(f"Error trying to establish a connection with client: {e}")
         else:
+            if self._server_socket:
+                self._server_socket.close()
             logging.info(f"action: receive_shutdown_signal | result: success")
 
     def __handle_client_connection(self, client_sock):
