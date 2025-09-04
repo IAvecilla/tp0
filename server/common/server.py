@@ -1,8 +1,9 @@
 import socket
 import logging
 import signal
-from common.utils import Bet, store_bets, load_bets, has_won
-from common.protocol import receive_bet_message, receive_new_message, send_results_not_ready, send_winners, encode_bet
+from common.utils import store_bets, load_bets, has_won
+from common.protocol import receive_bet_batch_message, send_bet_response, send_results_not_ready, send_winners, encode_bet, receive_new_message
+
 
 class Server:
     def __init__(self, port, listen_backlog, clients):
@@ -13,12 +14,13 @@ class Server:
         self.shutdown = False
         self.finished_clients = 0
         self.clients = int(clients)
+        self.final_winners = []
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-    def handle_sigterm(self, signum, frame):
-        self.shutdown = True
+    def handle_sigterm(self, _signum, _frame):
+        """Handler for the SIGTERM signal"""
         logging.info(f"action: receive_shutdown_signal | result: in_progress")
-        if self._server_socket:
-            self._server_socket.close()
+        self.shutdown = True
 
     def run(self):
         """
@@ -28,16 +30,17 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-        # the server
         while not self.shutdown:
             try:
                 client_sock = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
             except Exception as e:
-                logging.info(f"Error trying to establish a connection with client: {e}")
+                logging.error(
+                    f"Error processing client connection: {e}")
         else:
+            if self._server_socket:
+                self._server_socket.close()
             logging.info(f"action: receive_shutdown_signal | result: success")
 
     def __handle_client_connection(self, client_sock):
@@ -50,41 +53,40 @@ class Server:
         try:
             total_received_bets = 0
             msg = receive_new_message(client_sock)
-            while True:
+            while not self.shutdown:
                 if msg == "NEW_BET":
                     logging.info(f"action: total_apuestas_recibidas | result: in_progress")
-                    received_bets, keep_reading = receive_bet_message(client_sock)
+                    received_bets, keep_reading = receive_bet_batch_message(client_sock)
                     if received_bets and keep_reading:
                         store_bets(received_bets)
                         logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
-                        client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
-                        total_received_bets += len(received_bets) 
-                    elif not keep_reading:
-                        logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
+                        send_bet_response(client_sock, received_bets, total_received_bets)
+                        total_received_bets += len(received_bets)       
+                    else:
                         self.finished_clients += 1
+                        logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
                         break
-                if msg == "BET_RESULT":
+                if msg.startswith("BET_RESULT"):
                     logging.info("action: sorteo | result: in_progress")
-                    print(self.clients)
-                    print(self.finished_clients)
                     if self.clients == self.finished_clients:
-                        print("A")
-                        agency_id = receive_new_message(client_sock)
-                        print("B")
-                        final_bets = load_bets()
-                        winners = [bet for bet in final_bets if has_won(bet)]
-                        print("C")
-                        agency_winners = [encode_bet(bet) for bet in winners if bet.agency == int(agency_id)]
+                        agency_id = msg.split(",")[1]
+                        print(agency_id)
+                        if len(self.final_winners) == 0:
+                            self.final_bets = load_bets()
+                            self.final_winners = [bet for bet in self.final_bets if has_won(bet)]
+                        agency_winners = [encode_bet(bet) for bet in self.final_winners if bet.agency == int(agency_id)]
                         send_winners(client_sock, agency_winners)
-                        print("D")
                         logging.info("action: sorteo | result: success")
                         break
                     else:
                         send_results_not_ready(client_sock)
-                        logging.info("action: sorteo | result: in_progress")
                         break
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(
+                "action: receive_message | result: fail | error: {e}")
+        except Exception as e:
+            logging.error(
+                f"Error processing client requests: {e}")
         finally:
             client_sock.close()
 
@@ -99,5 +101,6 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        logging.info(
+            f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
