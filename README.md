@@ -334,3 +334,22 @@ Para probar esta funcionalidad unicamente se deben levantar los clientes y el se
 `make docker-compose-up`
 
 Se pueden revisar los logs de los diferentes, en los clientes indicara el total de ganadores que posee y en el servidor debera loguearse que el sorteo se realizo con exito.
+
+## Parte 3
+
+### Ejercicio 8
+
+Se modificó el servidor para soportar conexiones de cliente concurrentemente y poder procesar apuestas de dos clientes al mismo tiempo.
+
+Se utilizo la libreia de multiprocessing del std de Python. En este caso el modelo de concurrencia utilizado es la exclusion mutua. Puntualmente se crearon tres locks y dos value proxies para compartir ciertos valores entre procesos:
+- Uno de los locks se realizo sobre el archivo donde se escriben y leen las apuestas, asi solo un proceso de Python a la vez podra realizar operaciones lo que evita que haya estados inconsistentes entre procesos y que todos tengan su turno para acceder al recurso
+- Otro lock junto a un value proxy se creo para los clientes ya finalizados, de esta manera nos aseguramos que la cantidad sea consistente y todos los procesos observen la misma cantidad de clientes finalizados y listos para obtener resultados.
+- El ultimo lock se realiza sobre la lista de apuestas ganadoras. Este lock quizas no es tan necesario, se implementó de esta manera a la hora de calcular los ganadores para evitar tener que hacerlo una vez por agencia cuando los clientes se handleaban de forma iterativa, ahora que sucede todo en paralelo el hecho de que cada proceso se encargue de obtener los ganadores quizas no es tan problematico, de igual manera opté por dejarlo. El primero proceso que consiga el lock de esa lista va a ser el encargado de llenarla con los ganadores, los demas procesos ya veran la lista llena y procedearan a chequear cuales son los de la agencia correspondiente
+
+Tambien se creo una nueva lista con todos los procesos spawneados por el servidor, en caso de un shutdown o recibir una señal de SIGTERM se iteraran los procesos de los clientes 1 a 1 cerrando las conexiones y terminandolos
+
+Para probar esta funcionalidad unicamente se deben levantar los clientes y el servidor mediante:
+
+`make docker-compose-up`
+
+El comportamiento sigue siendo el mismo, con grandes inputs en la cantidad de apuestas o con el maximo de apuestas por batches puesto en 1 se llega a observar una minima mejora en los tiempos desde que inicia hasta que manda los ganadores pero puede ser simple casualidad por que son unos pocos segundos
