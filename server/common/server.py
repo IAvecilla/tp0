@@ -70,7 +70,6 @@ class Server:
                     logging.info("action: sorteo | result: in_progress")
                     if self.clients == self.finished_clients:
                         agency_id = msg.split(",")[1]
-                        print(agency_id)
                         if len(self.final_winners) == 0:
                             self.final_bets = load_bets()
                             self.final_winners = [bet for bet in self.final_bets if has_won(bet)]
