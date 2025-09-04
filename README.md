@@ -216,4 +216,18 @@ Se puede correr de la siguiente manera:
 
 - **MESSAGE_TO_SEND**: Mensaje a utilizar para probar el servidor, en caso de no definir esa variable se utiliza el mensaje `test` por defecto.
 
+### Ejercicio 4
 
+Se modifico al struct Client y Server para que al recibir una señal de SIGTERM finalicen su ejecucion de manera controlada.
+
+En el cliente se agregaron las librerias `os/syscall` y `signal` para manejar la señal de interrupcion y en el servidor se agrego la libreria de `signal`, ambos registran los handlers de la señal y modifican una variable que hace que el loop principal se detenga.
+
+Para comprobar dicho uso: 
+
+`make docker-compose-up`
+
+Una vez este todo levantado:
+
+`docker compose -f docker-compose-dev.yaml stop -t 5`
+
+Deberiamos poder ver con los comandos `docker logs client1` y `docker logs server`, los logs correspondientes al handleo de la señal.
