@@ -24,10 +24,25 @@ class Server:
         self.final_winners = manager.list()
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
+    def shutdown_cleanup(self):
+        """Clean up all processes during shutdown"""
+        # Force terminate any remaining processes
+        for process in self.active_processes:
+            if process.is_alive():
+                try:
+                    process.terminate()
+                    process.join(timeout=2.0)
+                except Exception as e:
+                    logging.error(f"Error terminating process {process.pid}: {e}")
+        
+        logging.info(f"action: cleanup_processes | result: success | processes_cleaned: {len(self.active_processes)}")
+        self.active_processes.clear()
+
     def handle_sigterm(self, _signum, _frame):
         """Handler for the SIGTERM signal"""
         logging.info(f"action: receive_shutdown_signal | result: in_progress")
         self.shutdown = True
+        self.shutdown_cleanup()
 
     def run(self):
         """
