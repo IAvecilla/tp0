@@ -305,3 +305,32 @@ Para probar esta funcionalidad unicamente se deben levantar los clientes y el se
 `make docker-compose-up`
 
 Se pueden revisar los logs de los diferentes servicios para chequear que los batches fueron siendo enviados y procesados por cliente y servidor respectivamente.
+
+### Ejercicio 7
+
+Se modifico tanto el cliente como el servidor para que ahora se pueda efectuar la loteria y obtener los ganadores una vez que todas las agencias hayan mandado todas sus apuestas. 
+
+## Cliente
+
+Se han agregado dos mensajes nuevos para el cliente:
+- Un mensaje `NEW_BET` indicando que se va a proceder a mandar los batches de apuestas con el formato indicado anteriormente
+- Un mensaje `BET_RESULT,<AGENCIA>` donde el cliente va a pedir por los resultados de las apuestas pasando en el mismo mensaje la agencia a la que pertenece
+
+Estos se hicieron para diferenciar la situacion del cliente. El proceso y formato de mensajes para el envio de apuestas es el mismo que antes. Una vez que finaliza de mandar todas sus apuestas se inicia un loop en donde el cliente enviara sucesivos mensajes de `BET_RESULT` hasta que los resultados esten disponibles. El cliente en este punto espera por una respuesta del servidor indicandole:
+- Si todavia se estan procesando apuestas por lo tanto seguira pidiendo por resultados luego de un sleep de 1 segundo
+- Si su agencia no tiene ganadores, por lo tanto termina el proceso
+- Si ya estan disponibles los resultados y ya puede consultar los ganadores de su agencia
+
+## Servidor
+
+El servidor contiene una nueva variable de configuracion definido como variables de ambiente (actualizado en el generador de docker compose) indicandole cuantas agencias van a participar en total de esta seria de apuestas. De esta manera puede generar los resultados cuando todos hayan enviado sus apuestas.
+
+El servidor seguira recibiendo mensajes de apuestas mientras los clientes las mandan, ahora responde a los dos nuevos mensajes del cliente para diferenciar si van a mandar apuestas o estan pidiendo por resultados. En el caso en que llegue un mensaje de resultados pero estos no estan listos entonces enviara un mensaje `NOT_READY`. En el caso en que si esten disponibles, carga el total de apuestas con `load_bets` y guarda el total de los ganadores en una lista. Luego determina cuales son los ganadores de la agencia que pidio por resultados:
+- En caso de que la agencia no presente ganadores se enviara el mensaje `NO_WINNERS`
+- En caso contrario se envia un mensaje con el total de los ganadores con formato `BET_1|BET_2|BET_3..BET_N`
+
+Para probar esta funcionalidad unicamente se deben levantar los clientes y el servidor mediante:
+
+`make docker-compose-up`
+
+Se pueden revisar los logs de los diferentes, en los clientes indicara el total de ganadores que posee y en el servidor debera loguearse que el sorteo se realizo con exito.
