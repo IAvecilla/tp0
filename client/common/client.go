@@ -2,7 +2,6 @@ package common
 
 import (
 	"net"
-	"time"
 	"os"
 	"os/signal"
 	"syscall"
