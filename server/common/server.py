@@ -2,7 +2,8 @@ import socket
 import logging
 import signal
 from common.utils import Bet, store_bets
-from common.protocol import receive_bet_message
+from common.protocol import receive_bet_message, send_bet_response
+
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -27,13 +28,13 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        # the server
         while not self.shutdown:
             try:
                 client_sock = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
             except Exception as e:
-                logging.info(f"Error trying to establish a connection with client: {e}")
+                logging.info(
+                    f"Error processing client connection: {e}")
         else:
             if self._server_socket:
                 self._server_socket.close()
@@ -49,10 +50,12 @@ class Server:
         try:
             received_bet = receive_bet_message(client_sock)
             store_bets([received_bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {received_bet.document} | numero: {received_bet.number}")
-            client_sock.send(f"{received_bet.document},{received_bet.number}\n".encode('utf-8'))
+            logging.info(
+                f"action: apuesta_almacenada | result: success | dni: {received_bet.document} | numero: {received_bet.number}")
+            send_bet_response(client_sock, received_bet)
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(
+                "action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 
@@ -67,5 +70,6 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        logging.info(
+            f'action: accept_connections | result: success | ip: {addr[0]}')
         return c

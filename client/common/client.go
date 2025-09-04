@@ -2,7 +2,6 @@ package common
 
 import (
 	"net"
-	"time"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,8 +15,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -29,7 +26,7 @@ type Client struct {
 }
 
 // NewClient Initializes a new client receiving the configuration
-// as a parameter
+// as a parameter along with the bet to send to the server
 func NewClient(config ClientConfig, bet Bet) *Client {
 	client := &Client{
 		config: config,
@@ -72,8 +69,8 @@ func (c *Client) shutdown() {
 	}
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
+// RunClient Send the bet message to the server
+func (c *Client) RunClient() {
 		if !c.keepRunning {
 			log.Infof("action: receive_shutdown_signal | result: success")
 			return
@@ -90,8 +87,5 @@ func (c *Client) StartClientLoop() {
 				c.config.ID,
 				err,
 			)
-			return
 		}
-
-		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
