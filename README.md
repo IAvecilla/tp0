@@ -268,3 +268,40 @@ Para probar esta funcionalidad unicamente se deben levantar los clientes y el se
 `make docker-compose-up`
 
 Se pueden revisar los logs de los diferentes servicios para chequear que las apuestas fueron enviadas, recibidas y procesadas.
+
+### Ejercicio 6
+
+Tanto el servidor como el cliente fueron modificados para el correct envio y procesamiento de batches de apuestas, ahora un mismo mensaje podra contener varias de ellas.
+
+## Cliente
+
+El cliente ya no se inicializa con una unica apuesta si no que se cargan todas las apuestas a enviar desde un archivo `.csv` que esta compartido con el host a traves de un volumen de Docker. Esto fue modificado en el generador. Todas las variables de entorno para crear la apuesta en el punto anterior fueron eliminados para mejor claridad del codigo.
+
+Ahora hay una nueva configuracion en el cliente que se lee desde el `.yaml` que determina la cantidad de apuestas que va a contener un batch.
+
+El cliente ahora enviara un mensaje con el siguiente formato para representar un batch de bets:
+
+```
+BET_1|BET_2|BET_3..BET_N
+```
+Manteniendo el mensaje de BET_1 con el mismo formato que en el punto anterior. A cada batch enviado el cliente espera la respuesta del cliente que contendra, las apuestas procesadas en ese batch y el total de apuestas procesadas hasta el momento de ese mensaje. El cliente corrobora que la cantidad sea la correcta.
+
+Una vez que se mandó el ultimo batch de apuestas (que puede contener menos apuestas que el declarado en la config) el cliente envia un ultimo mensaje `ALL_SENT` indicandole al servidor que el proceso ya terminó y no debe procesar mas batches. Existe la posibilidad de recibir un mensaje de error de parte del servidor por algun error en el procesamiento de una apuesta, ante este caso el cliente deja de enviar el resto de apuestas pendientes y termina su proceso.
+
+## Servidor
+
+El servidor espera por mensajes de con batches de apuestas con el formato indicado en el Cliente. Las lee en un loop hasta que el cliente envia su mensaje de finalizacion. 
+
+A cada batch recibido se llama a la funcion de `store_bets` para guardarlas al igual que en el punto anterior (solo que esta vez es una lista de apuestas). Asi mismo a cada batch procesado se enviar un mensaje con el siguiente formato:
+
+```
+BETS_PROCESSED_IN_BATCH,TOTAL_BETS_PROCESSED
+```
+
+Indicandole al cliente la cantidad de apuestas que proceso en este batch y la cantidad total de apuestas que ya procesó. El servidor chequea por la correctitud de las apuestas fijandose que todos los campos esten completos, en caso de que no lo estan, el Servidor, envia un mensaje de error `ERR_INVALID_BET` para indicarle al cliente que hay una apuesta erronea y no va a seguir procesando ninguna mas.
+
+Para probar esta funcionalidad unicamente se deben levantar los clientes y el servidor mediante:
+
+`make docker-compose-up`
+
+Se pueden revisar los logs de los diferentes servicios para chequear que los batches fueron siendo enviados y procesados por cliente y servidor respectivamente.
