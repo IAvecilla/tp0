@@ -6,7 +6,6 @@ import (
 	"net"
 	"strings"
 	"encoding/binary"
-	"errors"
 )
 
 type Bet struct {
@@ -18,9 +17,38 @@ type Bet struct {
 	Number        string
 }
 
+// Response expected from the server
 type ServerResponse struct {
 	BetsProcessedInBatch string
 	TotalBetsProcessed string
+}
+
+// Sends two messages through the socket, one with the length and other with actual message
+func sendMessage(conn net.Conn, message string) error {
+	messageBytes := []byte(message)
+	messageLength := len(message)
+
+	if messageLength > 8192 {
+		log.Error("action: send_message | result: fail | error: message larger than 8kb")
+		return fmt.Errorf("message larger than 8kb, consider changing the max amount of bets per batch")
+	}
+	messageSize := uint16(messageLength)
+	
+	// Create buffer of message size
+	sizeBuffer := make([]byte, 2)
+	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
+	
+	// Write the size of the message to the server
+	if err := writeAll(conn, sizeBuffer); err != nil {
+		return fmt.Errorf("error writing message size: %w", err)
+	}
+	
+	// Send the actual bet message
+	if err := writeAll(conn, messageBytes); err != nil {
+		return fmt.Errorf("error writing message: %w", err)
+	}
+
+	return nil
 }
 
 // Writes every byte of data in the socket
@@ -36,6 +64,7 @@ func writeAll(conn net.Conn, data []byte) error {
 	return nil
 }
 
+// Encodes the bet as a string to send as message
 func encodeBet(bet Bet) (string) {
 	betMessage := fmt.Sprintf(
 			"%v,%s,%s,%s,%s,%v\n",
@@ -50,35 +79,17 @@ func encodeBet(bet Bet) (string) {
 	return betMessage
 }
 
+// Sends a batch of bets
 func sendBets(bets []Bet, conn net.Conn) (*ServerResponse, error) {
 	var encodedBets []string
 	for _, bet := range bets {
 		encodedBets = append(encodedBets, encodeBet(bet))
 	}
-
 	finalBetMessage := strings.Join(encodedBets, "|")
-	messageBytes := []byte(finalBetMessage)
-	messageLength := len(finalBetMessage)
-
-	if messageLength > 8192 {
-		log.Error("action: send_message | result: fail | error: message larger than 8kb")
-		return nil, errors.New("message larger than 8kb, consider changing the max amount of bets per batch")
-	}
-
-	messageSize := uint16(messageLength)
 	
-	// Create buffer of message size
-	sizeBuffer := make([]byte, 2)
-	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
-	
-	// Write the size of the message to the server
-	if err := writeAll(conn, sizeBuffer); err != nil {
-		return nil, fmt.Errorf("error writing size: %w", err)
-	}
-	
-	// Send the actual bet message
-	if err := writeAll(conn, messageBytes); err != nil {
-		return nil, fmt.Errorf("error writing message: %w", err)
+	// Send the actual batch of bets message
+	if err := sendMessage(conn, finalBetMessage); err != nil {
+		return nil, err
 	}
 	
 	// Read and parse the server response
@@ -107,20 +118,11 @@ func sendBets(bets []Bet, conn net.Conn) (*ServerResponse, error) {
 	return res, err
 }
 
+// Send the last message of the batch sending process indicating that all of them were sent
 func sendAllBetsSentMessage(conn net.Conn) error {
-	allBatchSendMessage := "ALL_SENT"
-	messageBytes := []byte(allBatchSendMessage)
-	messageLength := len(allBatchSendMessage)
-	messageSize := uint16(messageLength)
-	sizeBuffer := make([]byte, 2)
-	binary.BigEndian.PutUint16(sizeBuffer, messageSize)
-
-	if err := writeAll(conn, sizeBuffer); err != nil {
-		return fmt.Errorf("error writing size: %w", err)
-	}
-	
-	if err := writeAll(conn, messageBytes); err != nil {
-		return fmt.Errorf("error writing message: %w", err)
+	allBatchSentMessage := "ALL_SENT"
+	if err := sendMessage(conn, allBatchSentMessage); err != nil {
+		return err
 	}
 
 	return nil

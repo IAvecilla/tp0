@@ -21,33 +21,14 @@ def write_server_service(output_file):
 
 def write_clients_service(output_file, num_clients):
     """Write all client services"""
-    nombres = ["Juan", "Lucas", "Sofia", "Martina", "Matias"]
-    apellidos = ["Perez", "Diaz", "Gomez", "Lopez", "Martinez"]
-
     clients_content = ""
     for client_id in range(1, num_clients + 1):
-        year = random.randint(2000, 2030)
-        month = random.randint(1, 12)
-        day = random.randint(1, 28)
-        random_date = f"{year:04d}-{month:02d}-{day:02d}"
-        random_dni = random.randint(1000000, 50000000)
-        random_number = random.randint(1, 10000)
-
-        # Use modulo to cycle through names if clients greater than names
-        nombre = nombres[(client_id - 1) % len(nombres)]
-        apellido = apellidos[(client_id - 1) % len(apellidos)]
-
         clients_content += f"""  client{client_id}:
     container_name: client{client_id}
     image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID={client_id}
-      - CLI_NUMERO={random_number}
-      - CLI_NOMBRE={nombre}
-      - CLI_APELLIDO={apellido}
-      - CLI_DOCUMENTO={random_dni}
-      - CLI_NACIMIENTO={random_date}
     volumes:
       - ./client/config.yaml:/config.yaml
       - ./.data/agency-{client_id}.csv:/agency-data.csv\n

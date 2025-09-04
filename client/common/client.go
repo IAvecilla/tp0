@@ -31,9 +31,9 @@ type Client struct {
 }
 
 // NewClient Initializes a new client receiving the configuration
-// as a parameter along with the bet to send to the server
-func NewClient(config ClientConfig, bet Bet) *Client {
-	bets, err := loadTotalBets(config)
+// as a parameter.
+func NewClient(config ClientConfig) *Client {
+	bets, err := getTotalBets(config)
 	if err != nil {
 		return nil
 	}
@@ -80,52 +80,53 @@ func (c *Client) shutdown() {
 
 // RunClient Send a set of messages to the server containing a batch of bets 
 func (c *Client) RunClient() {
+	if !c.keepRunning {
+		log.Infof("action: receive_shutdown_signal | result: success")
+		return
+	}
+
+	c.createClientSocket()
+	totalBetAmount := len(c.bets)
+	betsSent := 0
+
+	// Loop to handle all batches, including partial final batch
+	for betsSent < totalBetAmount {
 		if !c.keepRunning {
 			log.Infof("action: receive_shutdown_signal | result: success")
+			c.conn.Close()
 			return
 		}
-		c.createClientSocket()
-		totalBetAmount := len(c.bets)
-		betsSent := 0
-		for i := c.config.MaxBatchAmount; i < totalBetAmount; i = i + c.config.MaxBatchAmount {
-			betsInBatch := c.bets[betsSent:i]
-			response, err := sendBets(betsInBatch, c.conn)
-			log.Infof("action: batch_sending | result: in_progress | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
-			if err != nil {
-				log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
-				c.conn.Close()
-				return
-			}
-			parsedBetAmount, _ := strconv.Atoi(response.BetsProcessedInBatch)
-			betsSent += parsedBetAmount
-			log.Infof("action: batch_sending | result: success | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
+
+		// Calculate the end index for this batch
+		batchEnd := betsSent + c.config.MaxBatchAmount
+		if batchEnd > totalBetAmount {
+			batchEnd = totalBetAmount
 		}
 
-		if betsSent < totalBetAmount && betsSent + c.config.MaxBatchAmount >= totalBetAmount {
-			betsInBatch := c.bets[betsSent:totalBetAmount]
-			response, err := sendBets(betsInBatch, c.conn)
-			log.Infof("action: batch_sending | result: in_progress | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
-			if err != nil {
-				log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
-				c.conn.Close()
-				return
-			}
-			parsedBetAmount, _ := strconv.Atoi(response.BetsProcessedInBatch)
-			betsSent += parsedBetAmount
-			log.Infof("action: batch_sending | result: success | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
+		betsInBatch := c.bets[betsSent:batchEnd]
+		log.Infof("action: batch_sending | result: in_progress")
+		response, err := sendBets(betsInBatch, c.conn)
+		
+		if err != nil {
+			log.Errorf("action: batch_sending | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			c.conn.Close()
+			return
 		}
+		
+		parsedBetAmount, _ := strconv.Atoi(response.BetsProcessedInBatch)
+		betsSent += parsedBetAmount
+		log.Infof("action: batch_sending | result: success | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
+	}
 
-		sendAllBetsSentMessage(c.conn)
-		c.conn.Close()
+	sendAllBetsSentMessage(c.conn)
+	c.conn.Close()
 }
 
-func loadTotalBets(config ClientConfig) ([]Bet, error) {
+// Get all the bets from the agency-data file
+func getTotalBets(config ClientConfig) ([]Bet, error) {
 	file, err := os.Open("agency-data.csv")
 	if err != nil {
 		return nil, err

@@ -2,7 +2,7 @@ import socket
 import logging
 import signal
 from common.utils import Bet, store_bets
-from common.protocol import receive_bet_message, send_bet_response
+from common.protocol import receive_bet_batch_message, send_bet_response
 
 
 class Server:
@@ -48,21 +48,24 @@ class Server:
         client socket will also be closed
         """
         try:
-            logging.info(f"action: total_apuestas_recibidas | result: in_progress")
+            logging.info(f"action: total_bets_received | result: in_progress")
             total_received_bets = 0
             while True:
-                received_bets, keep_reading = receive_bet_message(client_sock)
+                received_bets, keep_reading = receive_bet_batch_message(client_sock)
                 if received_bets and keep_reading:
                     store_bets(received_bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
                     send_bet_response(client_sock, received_bets, total_received_bets)
                     total_received_bets += len(received_bets)       
                 else:
-                    logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
+                    logging.info(f"action: total_bets_received | result: success | cantidad: {total_received_bets}")
                     break
         except OSError as e:
             logging.error(
                 "action: receive_message | result: fail | error: {e}")
+        except Exception as e:
+            logging.error(
+                "Error processing client requests: {e}")
         finally:
             client_sock.close()
 
