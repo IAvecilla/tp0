@@ -231,3 +231,40 @@ Una vez este todo levantado:
 `docker compose -f docker-compose-dev.yaml stop -t 5`
 
 Deberiamos poder ver con los comandos `docker logs client1` y `docker logs server`, los logs correspondientes al handleo de la señal.
+
+## Parte 2
+
+### Ejercicio 5
+
+Se modifico el comportamiento del Cliente y el Servidor para que puedan generar y enviar un mensaje de apuesta (Cliente) y procesar y guardar las apuestas recibidas (Servidor).
+
+El cliente debe recibir una serie de datos para formar la apuesta que son declarados como variables de ambiente. En este caso el script generador del docker compose se encarga de generar algunos datos falsos y asignarlos a estas variables donde a cada cliente se le generan algunos datos distintos para poder reconocerlos facilmente. Las variables de ambiente leidas por `vyper` previamente leian unicamente las variables de ambiente que tenian el prefijo `CLI` asi que ese mismo prefijo se utilizo para estas variables.
+
+**Cliente**
+El cliente al inicializarse lee estas variables y se guarda una apuesta con dichos datos. A la hora de ejecutarse la funcion `run` el cliente enviara dos mensajes:
+
+1. El primer mensaje representa el tamaño total de datos que va a enviar, de este modo el servidor sabe cuanto contenido debe esperar
+2. El segundo mensaje es el mensaje de la apuesta que sigue el siguiente formato:
+    ```
+    AGENCIA,NOMBRE,APELLIDO,DOCUMENTO,NACIMIENTO,NUMERO
+    ```
+
+Luego esperara por la respuesta del servidor que debera contener el documento y el numero de la apuesta realizada. En caso de que los datos sean incorrectos o no reciba una respuesta terminara el proceso.
+
+**Servidor**
+
+El servidor procesara el mensaje de apuesta de los clientes y en caso exitoso debera guardarlas mediante la funcion `store_bets` y enviar una respuesta con el siguiente formato:
+
+```
+DOCUMENTO,NUMERO
+```
+
+Cuyos datos vendran de la apuesta que recibio.
+
+Ambos tienen funciones auxiliares para leer y escribir que se encargan de chequear que la totalidad de bytes se lea y se escriba con la utilizacion de un loop, de este modo evitamos cualquier tipo de `short_read` y `short_write`.
+
+Para probar esta funcionalidad unicamente se deben levantar los clientes y el servidor mediante:
+
+`make docker-compose-up`
+
+Se pueden revisar los logs de los diferentes servicios para chequear que las apuestas fueron enviadas, recibidas y procesadas.
