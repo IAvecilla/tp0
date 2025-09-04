@@ -21,7 +21,7 @@ class Server:
         self._storage_lock = manager.Lock()
         self.active_processes = []
         self.final_winners_lock = manager.Lock()
-        self.final_winners = manager.Value('i', 0)
+        self.final_winners = manager.list
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def handle_sigterm(self, _signum, _frame):
@@ -98,11 +98,11 @@ class Server:
 
                     if self.clients == current_finished_clients:
                         agency_id = msg.split(",")[1]
-                        if len(self.final_winners.value) == 0:
+                        if len(self.final_winners) == 0:
                             with self._storage_lock:
                                 final_bets = load_bets()
                             with self.final_winners_lock:
-                                self.final_winners.value = [bet for bet in final_bets if has_won(bet)]
+                                self.final_winners = [bet for bet in final_bets if has_won(bet)]
                         agency_winners = [encode_bet(bet) for bet in self.final_winners if bet.agency == int(agency_id)]
                         send_winners(client_sock, agency_winners)
                         logging.info("action: sorteo | result: success")
