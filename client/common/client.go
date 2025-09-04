@@ -9,7 +9,6 @@ import (
 	"io"
 	"strconv"
 	"time"
-
 	"github.com/op/go-logging"
 )
 
@@ -20,7 +19,6 @@ type ClientConfig struct {
 	ID            string
 	ServerAddress string
 	MaxBatchAmount int
-
 }
 
 // Client Entity that encapsulates how
@@ -28,22 +26,27 @@ type Client struct {
 	config ClientConfig
 	conn   net.Conn
 	keepRunning bool
-	bets []Bet
+	file   *os.File
+	reader *csv.Reader
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter.
 func NewClient(config ClientConfig) *Client {
-	bets, err := getTotalBets(config)
+	// Open file once during initialization
+	file, reader, err := openDataFile()
 	if err != nil {
+		log.Errorf("action: open_file | result: fail | error: %v", err)
 		return nil
 	}
+	
 	client := &Client{
 		config: config,
 		keepRunning: true,
-		bets: bets,
+		file: file,
+		reader: reader,
 	}
-
+	
 	// If the SIGTERM signal is received it will be sent to the sigc channel triggering
 	// the shutdown in the goroutine
 	sigc := make(chan os.Signal, 1)
@@ -78,6 +81,11 @@ func (c *Client) shutdown() {
 	if c.keepRunning {
 		c.keepRunning = false
 	}
+
+	// Close file when shutting down
+	if c.file != nil {
+		c.file.Close()
+	}
 }
 
 // RunClient Send a set of messages to the server containing a batch of bets 
@@ -86,79 +94,99 @@ func (c *Client) RunClient() {
 		log.Infof("action: receive_shutdown_signal | result: success")
 		return
 	}
-
+	
+	// Ensure file is closed when function ends
+	defer func() {
+		if c.file != nil {
+			c.file.Close()
+		}
+	}()
+	
 	c.createClientSocket()
-	totalBetAmount := len(c.bets)
-	betsSent := 0
-
-	// Loop to handle all batches, including partial final batch
-	for betsSent < totalBetAmount {
+	totalBetsSent := 0
+	
+	// Loop to handle all batches
+	for {
 		if !c.keepRunning {
 			log.Infof("action: receive_shutdown_signal | result: success")
-			c.conn.Close()
 			return
 		}
-
-		// Calculate the end index for this batch
-		batchEnd := betsSent + c.config.MaxBatchAmount
-		if batchEnd > totalBetAmount {
-			batchEnd = totalBetAmount
+		
+		// Get next batch from file
+		betsToSend, err := c.getNextBatch(c.config.MaxBatchAmount)
+		if err != nil && err != io.EOF {
+			log.Errorf("action: batch_sending | result: fail | client_id: %v | error: %v",
+				c.config.ID, err)
+			return
 		}
-
-		betsInBatch := c.bets[betsSent:batchEnd]
-		log.Infof("action: batch_sending | result: in_progress")
-		response, err := sendBets(betsInBatch, c.conn)
+		
+		// If no more bets, break the loop
+		if len(betsToSend) == 0 {
+			break
+		}
+		
+		log.Infof("action: batch_sending | result: in_progress | batch_size: %v", len(betsToSend))
+		response, err := sendBets(betsToSend, c.conn)
 		
 		if err != nil {
 			log.Errorf("action: batch_sending | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			c.conn.Close()
+				c.config.ID, err)
 			return
 		}
 		
 		parsedBetAmount, _ := strconv.Atoi(response.BetsProcessedInBatch)
-		betsSent += parsedBetAmount
-		log.Infof("action: batch_sending | result: success | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
+		totalBetsSent += parsedBetAmount
+		log.Infof("action: batch_sending | result: success | bets_sent_in_batch: %v | total_bets_sent: %v", 
+			parsedBetAmount, totalBetsSent)
+		
+		// If we got EOF, this was the last batch
+		if err == io.EOF {
+			break
+		}
 	}
-
+	
 	sendAllBetsSentMessage(c.conn)
 	c.conn.Close()
+	log.Infof("action: send_all_bets | result: success | total_bets_sent: %v", totalBetsSent)
 }
 
-// Get all the bets from the agency-data file
-func getTotalBets(config ClientConfig) ([]Bet, error) {
+// openDataFile opens the CSV file and returns file handle and reader
+func openDataFile() (*os.File, *csv.Reader, error) {
 	file, err := os.Open("agency-data.csv")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer file.Close()
-
+	
 	reader := csv.NewReader(file)
-    var bets []Bet
+	return file, reader, nil
+}
 
-    for {
-        record, err := reader.Read()
-        if err == io.EOF {
-            break
-        }
-        if err != nil {
-            log.Infof("Error reading record: %v", err)
-            continue
-        }
-        
-        bet := Bet{
-            AgencyId:  config.ID,
-            Name:      record[0],
-            LastName:  record[1],
-            Document:  record[2],
-            Birthdate: record[3],
-            Number:    record[4],
-        }
-        
-        bets = append(bets, bet)
-    }
-    
-    return bets, nil
+// getNextBatch reads the next batch of bets from the CSV file
+func (c *Client) getNextBatch(batchSize int) ([]Bet, error) {
+	var bets []Bet
+	
+	for i := 0; i < batchSize; i++ {
+		record, err := c.reader.Read()
+		if err == io.EOF {
+			// End of file reached
+			return bets, err
+		}
+		if err != nil {
+			log.Errorf("Error reading record: %v", err)
+			continue
+		}
+		
+		bet := Bet{
+			AgencyId:  c.config.ID,
+			Name:      record[0],
+			LastName:  record[1],
+			Document:  record[2],
+			Birthdate: record[3],
+			Number:    record[4],
+		}
+		
+		bets = append(bets, bet)
+	}
+	
+	return bets, nil
 }
