@@ -15,11 +15,13 @@ class Server:
         manager = multiprocessing.Manager()
         self._server_socket.listen(listen_backlog)
         self.shutdown = False
+        self.finished_clients_lock = manager.Lock()
         self.finished_clients = manager.Value('i', 0)
         self.clients = int(clients)
         self._storage_lock = manager.Lock()
         self.active_processes = []
-        self.final_winners = manager.list()
+        self.final_winners_lock = manager.Lock()
+        self.final_winners = manager.Value('i', 0)
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def handle_sigterm(self, _signum, _frame):
@@ -85,18 +87,23 @@ class Server:
                         send_bet_response(client_sock, received_bets, total_received_bets)
                         total_received_bets += len(received_bets)       
                     else:
-                        self.finished_clients.value += 1
+                        with self.finished_clients_lock:
+                            self.finished_clients.value += 1
                         logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
                         break
                 if msg.startswith("BET_RESULT"):
                     logging.info("action: sorteo | result: in_progress")
-                    if self.clients == self.finished_clients.value:
+                    with self.finished_clients_lock:
+                        current_finished_clients = self.finished_clients.value
+
+                    if self.clients == current_finished_clients:
                         agency_id = msg.split(",")[1]
                         print(agency_id)
                         if len(self.final_winners) == 0:
                             with self._storage_lock:
                                 final_bets = load_bets()
-                            self.final_winners = [bet for bet in final_bets if has_won(bet)]
+                            with self.final_winners_lock:
+                                self.final_winners = [bet for bet in final_bets if has_won(bet)]
                         agency_winners = [encode_bet(bet) for bet in self.final_winners if bet.agency == int(agency_id)]
                         send_winners(client_sock, agency_winners)
                         logging.info("action: sorteo | result: success")
