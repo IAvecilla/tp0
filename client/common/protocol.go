@@ -136,9 +136,15 @@ func sendAskForResults(conn net.Conn, agencyId string) ([]string, bool, error) {
 	}
 
 	msg, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		return nil, false, err
+	}
+
+	msg = strings.TrimSpace(msg)
 	if msg == "NOT_READY" {
 		return []string{}, true, err
 	} else if msg == "NO_WINNERS" {
+		log.Infof("NO WINNERS")
 		return []string{}, false, err
 	}
 

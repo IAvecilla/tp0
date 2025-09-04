@@ -98,7 +98,6 @@ class Server:
 
                     if self.clients == current_finished_clients:
                         agency_id = msg.split(",")[1]
-                        print(agency_id)
                         if len(self.final_winners) == 0:
                             with self._storage_lock:
                                 final_bets = load_bets()
