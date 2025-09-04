@@ -2,7 +2,6 @@ package common
 
 import (
 	"net"
-	"time"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,9 +18,8 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 	MaxBatchAmount int
+
 }
 
 // Client Entity that encapsulates how
@@ -33,7 +31,7 @@ type Client struct {
 }
 
 // NewClient Initializes a new client receiving the configuration
-// as a parameter
+// as a parameter along with the bet to send to the server
 func NewClient(config ClientConfig, bet Bet) *Client {
 	bets, err := loadTotalBets(config)
 	if err != nil {
@@ -44,6 +42,9 @@ func NewClient(config ClientConfig, bet Bet) *Client {
 		keepRunning: true,
 		bets: bets,
 	}
+
+	// If the SIGTERM signal is received it will be sent to the sigc channel triggering
+	// the shutdown in the goroutine
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGTERM)
 	go func() {
@@ -77,8 +78,8 @@ func (c *Client) shutdown() {
 	}
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
+// RunClient Send a set of messages to the server containing a batch of bets 
+func (c *Client) RunClient() {
 		if !c.keepRunning {
 			log.Infof("action: receive_shutdown_signal | result: success")
 			return
@@ -120,10 +121,8 @@ func (c *Client) StartClientLoop() {
 			log.Infof("action: batch_sending | result: success | bets_already_sent: %v | total_bets: %v", betsSent, totalBetAmount)
 		}
 
-		sendFinalMessage(c.conn)
+		sendAllBetsSentMessage(c.conn)
 		c.conn.Close()
-
-		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
 
 func loadTotalBets(config ClientConfig) ([]Bet, error) {

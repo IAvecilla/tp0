@@ -121,13 +121,11 @@ func main() {
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
-		MaxBatchAmount: v.GetInt("batch.maxAmount"),
+		MaxBatchAmount: v.GetInt("batch.maxAmount"),		
 	}
 
 	client := common.NewClient(clientConfig, bet)
 	if client != nil {
-		client.StartClientLoop()
+		client.RunClient()
 	}
 }

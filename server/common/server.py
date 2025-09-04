@@ -2,7 +2,8 @@ import socket
 import logging
 import signal
 from common.utils import Bet, store_bets
-from common.protocol import receive_bet_message
+from common.protocol import receive_bet_message, send_bet_response
+
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -11,12 +12,12 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.shutdown = False
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-    def handle_sigterm(self, signum, frame):
-        self.shutdown = True
+    def handle_sigterm(self, _signum, _frame):
+        """Handler for the SIGTERM signal"""
         logging.info(f"action: receive_shutdown_signal | result: in_progress")
-        if self._server_socket:
-            self._server_socket.close()
+        self.shutdown = True
 
     def run(self):
         """
@@ -26,16 +27,17 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-        # the server
         while not self.shutdown:
             try:
                 client_sock = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
             except Exception as e:
-                logging.info(f"Error trying to establish a connection with client: {e}")
+                logging.info(
+                    f"Error processing client connection: {e}")
         else:
+            if self._server_socket:
+                self._server_socket.close()
             logging.info(f"action: receive_shutdown_signal | result: success")
 
     def __handle_client_connection(self, client_sock):
@@ -53,13 +55,14 @@ class Server:
                 if received_bets and keep_reading:
                     store_bets(received_bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(received_bets)}")
-                    client_sock.send(f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
+                    send_bet_response(client_sock, received_bets, total_received_bets)
                     total_received_bets += len(received_bets)       
                 else:
                     logging.info(f"action: total_apuestas_recibidas | result: success | cantidad: {total_received_bets}")
                     break
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(
+                "action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 
@@ -74,5 +77,6 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        logging.info(
+            f'action: accept_connections | result: success | ip: {addr[0]}')
         return c

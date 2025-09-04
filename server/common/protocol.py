@@ -5,15 +5,10 @@ from common.utils import Bet
 
 def receive_bet_message(client_sock):
     processed_bets = []
-    size = int.from_bytes(client_sock.recv(2), byteorder='big')
-    data = b""
-    while len(data) < size:
-        packet = client_sock.recv(size - len(data))
-        if not packet:
-            raise ConnectionError("Connection closed unexpectedly")
-        data += packet
-
-    msg = data.decode('utf-8').strip()
+    size_bytes = recv_exact(client_sock, 2)
+    size = int.from_bytes(size_bytes, byteorder='big')
+    msg = recv_exact(client_sock, size)
+    msg = msg.decode('utf-8').strip()
     
     if msg == "ALL_SENT":
         return None, False
@@ -28,6 +23,30 @@ def receive_bet_message(client_sock):
             client_sock.send("{}\n".format("ERR_INVALID_BET").encode('utf-8'))
             raise ValueError("Invalid Bet")
         
-        processed_bets.append(Bet(bet_fields[0],bet_fields[1],bet_fields[2], bet_fields[3], bet_fields[4], bet_fields[5]))
+        agency_id, name, last_name, document, birthdate, number = bet_fields[0], bet_fields[1], bet_fields[2], bet_fields[3], bet_fields[4], bet_fields[5]
+        processed_bets.append(Bet(agency_id, name, last_name, document, birthdate, number))
 
     return processed_bets, True
+
+def recv_exact(sock, n):
+    """Recives exactly n bytes"""
+    data = b""
+    while len(data) < n:
+        packet = sock.recv(n - len(data))
+        if not packet:
+            raise ConnectionError("Connection closed unexpectedly")
+        data += packet
+    return data
+
+def send_all(sock, data):
+    """Writes all the data in the socket"""
+    total_sent = 0
+    while total_sent < len(data):
+        sent = sock.send(data[total_sent:])
+        if sent == 0:
+            raise ConnectionError("Socket connection broken")
+        total_sent += sent
+
+def send_bet_response(client_sock, received_bets, total_received_bets):
+    """Sends the correct response to new batches of bets from a client if they were correctly processed"""
+    send_all(client_sock, f"{len(received_bets)},{total_received_bets}\n".encode('utf-8'))
