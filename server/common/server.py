@@ -21,7 +21,7 @@ class Server:
         self._storage_lock = manager.Lock()
         self.active_processes = []
         self.final_winners_lock = manager.Lock()
-        self.final_winners = manager.list
+        self.final_winners = manager.list()
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
     def handle_sigterm(self, _signum, _frame):
